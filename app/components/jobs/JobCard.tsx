@@ -2,13 +2,15 @@
 
 import React from "react";
 import { Job } from "@/app/data/jobs";
-import { Button, StatusBadge } from "../design-system";
+import { Button } from "../design-system";
 import { cn } from "@/lib/utils";
+import { getMatchScoreColor } from "@/app/lib/matchScore";
 
 /**
  * Job Card Component
  * 
  * Displays job information with View, Save, and Apply buttons.
+ * Shows match score badge when provided.
  * Follows design system: off-white background, deep red accent, subtle borders.
  */
 
@@ -18,6 +20,7 @@ interface JobCardProps {
   onView: (job: Job) => void;
   onSave: (jobId: string) => void;
   onApply: (url: string) => void;
+  matchScore?: number;
 }
 
 const sourceColors = {
@@ -26,7 +29,7 @@ const sourceColors = {
   Indeed: "bg-[#2557A7] bg-opacity-10 text-[#2557A7]",
 };
 
-export function JobCard({ job, isSaved, onView, onSave, onApply }: JobCardProps) {
+export function JobCard({ job, isSaved, onView, onSave, onApply, matchScore }: JobCardProps) {
   const formatPostedTime = (days: number) => {
     if (days === 0) return "Today";
     if (days === 1) return "1 day ago";
@@ -35,10 +38,17 @@ export function JobCard({ job, isSaved, onView, onSave, onApply }: JobCardProps)
 
   return (
     <div className="bg-white border border-[#D4D2CC] rounded-[6px] p-24 transition-all duration-150 hover:border-[#8B0000]">
-      {/* Header: Title & Company */}
-      <div className="mb-16">
-        <h3 className="font-serif text-xl text-[#111111] mb-8">{job.title}</h3>
-        <p className="text-base text-[#6B6B6B]">{job.company}</p>
+      {/* Header: Title, Company & Match Score */}
+      <div className="flex items-start justify-between gap-16 mb-16">
+        <div className="flex-1">
+          <h3 className="font-serif text-xl text-[#111111] mb-8">{job.title}</h3>
+          <p className="text-base text-[#6B6B6B]">{job.company}</p>
+        </div>
+        {matchScore !== undefined && (
+          <span className={cn("px-12 py-6 text-sm font-medium rounded-[6px] whitespace-nowrap", getMatchScoreColor(matchScore))}>
+            {matchScore}% match
+          </span>
+        )}
       </div>
 
       {/* Job Details */}

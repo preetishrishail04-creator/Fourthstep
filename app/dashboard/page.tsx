@@ -1,15 +1,18 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
 import { jobs, Job, getUniqueLocations, getUniqueModes, getUniqueExperiences, getUniqueSources } from "../data/jobs";
 import { JobCard, JobModal, FilterBar } from "../components/jobs";
-import { EmptyState } from "../components/design-system";
+import { EmptyState, Button } from "../components/design-system";
+import { calculateMatchScore, loadPreferences, hasPreferences, Preferences } from "../lib/matchScore";
 
 /**
  * Dashboard Page
  * 
- * Displays job cards with filtering and search capabilities.
+ * Displays job cards with filtering, search, and match scoring capabilities.
  * Saved jobs are stored in localStorage.
+ * Match scores are calculated based on user preferences.
  */
 
 const SAVED_JOBS_KEY = "jnt_saved_jobs";
@@ -18,6 +21,8 @@ export default function DashboardPage() {
   const [savedJobIds, setSavedJobIds] = useState<string[]>([]);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [preferences, setPreferences] = useState<Preferences | null>(null);
+  const [showOnlyMatches, setShowOnlyMatches] = useState(false);
   const [filters, setFilters] = useState({
     keyword: "",
     location: "",
@@ -27,7 +32,7 @@ export default function DashboardPage() {
     sort: "latest",
   });
 
-  // Load saved jobs from localStorage on mount
+  // Load saved jobs and preferences from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem(SAVED_JOBS_KEY);
     if (saved) {
@@ -37,6 +42,8 @@ export default function DashboardPage() {
         setSavedJobIds([]);
       }
     }
+    
+    setPreferences(loadPreferences());
   }, []);
 
   // Save to localStorage when savedJobIds changes
@@ -66,8 +73,27 @@ export default function DashboardPage() {
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
+  const userHasPreferences = hasPreferences();
+  const minMatchScore = preferences?.minMatchScore ?? 40;
+
+  // Calculate match scores for all jobs
+  const jobsWithScores = useMemo(() => {
+    if (!preferences) {
+      return jobs.map((job) => ({ ...job, matchScore: undefined }));
+    }
+    return jobs.map((job) => ({
+      ...job,
+      matchScore: calculateMatchScore(job, preferences),
+    }));
+  }, [preferences]);
+
   const filteredJobs = useMemo(() => {
-    let result = [...jobs];
+    let result = [...jobsWithScores];
+
+    // Filter by match score threshold if toggle is on
+    if (showOnlyMatches && preferences) {
+      result = result.filter((job) => (job.matchScore ?? 0) >= minMatchScore);
+    }
 
     // Keyword filter
     if (filters.keyword) {
@@ -107,6 +133,9 @@ export default function DashboardPage() {
       case "oldest":
         result.sort((a, b) => b.postedDaysAgo - a.postedDaysAgo);
         break;
+      case "match-score":
+        result.sort((a, b) => (b.matchScore ?? 0) - (a.matchScore ?? 0));
+        break;
       case "salary-high":
         // Simple sort by extracting first number from salary range
         result.sort((a, b) => {
@@ -129,7 +158,7 @@ export default function DashboardPage() {
     }
 
     return result;
-  }, [filters]);
+  }, [filters, jobsWithScores, showOnlyMatches, minMatchScore, preferences]);
 
   return (
     <div className="max-w-[1200px] mx-auto px-24 py-40">
@@ -142,6 +171,22 @@ export default function DashboardPage() {
         </p>
       </div>
 
+      {/* Preferences Banner */}
+      {!userHasPreferences && (
+        <div className="bg-[#F7F6F3] border border-[#D4D2CC] rounded-[6px] p-24 mb-24">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-16">
+            <p className="text-base text-[#6B6B6B]">
+              Set your preferences to activate intelligent matching.
+            </p>
+            <Link href="/settings">
+              <Button variant="primary" size="small">
+                Set Preferences
+              </Button>
+            </Link>
+          </div>
+        </div>
+      )}
+
       <FilterBar
         filters={filters}
         onFilterChange={handleFilterChange}
@@ -149,17 +194,24 @@ export default function DashboardPage() {
         modes={getUniqueModes()}
         experiences={getUniqueExperiences()}
         sources={getUniqueSources()}
+        showOnlyMatches={showOnlyMatches}
+        onToggleMatches={() => setShowOnlyMatches(!showOnlyMatches)}
+        hasPreferences={userHasPreferences}
       />
 
       {filteredJobs.length === 0 ? (
         <div className="text-center py-64">
-          <p className="text-lg text-[#6B6B6B]">No jobs match your search.</p>
+          <EmptyState
+            title="No roles match your criteria"
+            description="Adjust filters or lower your match threshold to see more jobs."
+          />
         </div>
       ) : (
         <>
           <div className="mb-24">
             <span className="text-sm text-[#6B6B6B]">
               Showing {filteredJobs.length} of {jobs.length} jobs
+              {showOnlyMatches && userHasPreferences && ` (above ${minMatchScore}% match)`}
             </span>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-24">
@@ -171,6 +223,7 @@ export default function DashboardPage() {
                 onView={handleViewJob}
                 onSave={handleSaveJob}
                 onApply={handleApply}
+                matchScore={job.matchScore}
               />
             ))}
           </div>

@@ -12,7 +12,8 @@ import { cn } from "@/lib/utils";
  * - Mode dropdown
  * - Experience dropdown
  * - Source dropdown
- * - Sort dropdown (Latest default)
+ * - Sort dropdown (Latest default, Match Score)
+ * - Show only matches toggle
  */
 
 interface FilterBarProps {
@@ -29,6 +30,9 @@ interface FilterBarProps {
   modes: string[];
   experiences: string[];
   sources: string[];
+  showOnlyMatches?: boolean;
+  onToggleMatches?: () => void;
+  hasPreferences?: boolean;
 }
 
 export function FilterBar({
@@ -38,6 +42,9 @@ export function FilterBar({
   modes,
   experiences,
   sources,
+  showOnlyMatches,
+  onToggleMatches,
+  hasPreferences,
 }: FilterBarProps) {
   const selectClassName = cn(
     "px-16 py-12 bg-white border border-[#D4D2CC] rounded-[6px] text-sm text-[#111111]",
@@ -150,11 +157,29 @@ export function FilterBar({
           >
             <option value="latest">Latest</option>
             <option value="oldest">Oldest</option>
+            <option value="match-score">Match Score</option>
             <option value="salary-high">Salary: High to Low</option>
             <option value="salary-low">Salary: Low to High</option>
           </select>
         </div>
       </div>
+
+      {/* Show Only Matches Toggle */}
+      {hasPreferences && onToggleMatches && (
+        <div className="mt-24 pt-24 border-t border-[#E8E6E1]">
+          <label className="flex items-center gap-12 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showOnlyMatches}
+              onChange={onToggleMatches}
+              className="w-20 h-20 accent-[#8B0000] cursor-pointer"
+            />
+            <span className="text-sm text-[#111111]">
+              Show only jobs above my threshold
+            </span>
+          </label>
+        </div>
+      )}
     </div>
   );
 }
